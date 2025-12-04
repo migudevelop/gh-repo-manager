@@ -9,7 +9,7 @@ import {
   showConfirmationPrompt,
   showDeletedRepositoriesMultiselectPrompt
 } from './helpers.js'
-import { outro, intro, log, note } from '@clack/prompts'
+import { outro, intro, log } from '@clack/prompts'
 import { blueBright, greenBright, redBright } from 'colorette'
 
 const EXIT_APP_MESSAGE = 'Thanks for use this cli'
@@ -28,7 +28,6 @@ export function initCli() {
     .option('-t, --token <token>', 'GitHub token (overrides GITHUB_TOKEN env)')
     .action(async (options) => {
       intro(blueBright('Welcome to gh-repo-manager CLI!'))
-      note('You can edit the file src/index.jsx', 'Next steps.')
       if (options?.delete) {
         const repositories = await getRepositories(options?.token)
         const selectedRepositories =
