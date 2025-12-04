@@ -1,6 +1,6 @@
 {
   "name": "gh-repo-manager",
-  "version": "0.1.2",
+  "version": "0.1.0",
   "description": "Node.js CLI tool to list and delete GitHub repositories via the official API.",
   "main": "src/index.js",
   "type": "module",
