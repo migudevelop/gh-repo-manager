@@ -47,7 +47,11 @@ export async function deleteRepository(owner, repo, token) {
     const octokit = getOctokit(token)
     log.info(`Deleting repository ${owner}/${repo}...`)
     const result = await octokit.rest.repos.delete({ owner, repo })
-    return { isFinished: true, result }
+    return {
+      isFinished: true,
+      isDeleted: result?.status >= 200 && result?.status < 300,
+      result
+    }
   } catch (error) {
     log.error(
       `Error deleting repository ${owner}/${repo}:`,
@@ -66,13 +70,12 @@ export async function deleteRepositories(owners, token) {
   const errors = []
   spin.start('Loading')
 
-  // Crear tareas limitadas con p-limit (concurrency ya definido en `limit`)
   const tasks = owners.map((ownerRepo) => {
     const [name, owner] = ownerRepo.split(':')
     return limit(async () => {
       try {
         const result = await deleteRepository(owner, name, token)
-        return { owner, name, result }
+        return { owner, name, ...result }
       } catch (error) {
         return { owner, name, error }
       }
@@ -81,26 +84,23 @@ export async function deleteRepositories(owners, token) {
 
   const results = await Promise.all(tasks)
 
-  results.forEach(({ owner, name, result, error }) => {
+  results.forEach(({ owner, name, isDeleted, result, error }) => {
     if (error) {
       errors.push({ owner, name, error })
       log.error(`Failed to delete ${owner}/${name}: ${error?.message ?? error}`)
-    } else if (result?.status) {
-      if (result?.status >= 200 && result?.status < 300) {
-        log.info(`Deleted ${owner}/${name}`)
-      } else {
-        errors.push({
-          owner,
-          name,
-          error: new Error(`Unexpected status code: ${result?.status}`)
-        })
-        log.error(
-          `Failed to delete ${owner}/${name}: Unexpected status code ${result?.status}`
-        )
-      }
+      return
+    }
+    if (isDeleted) {
+      log.success(green(`Deleted ${owner}/${name}`))
     } else {
-      errors.push({ owner, name, error: new Error('Deletion returned false') })
-      log.error(`Failed to delete ${owner}/${name}`)
+      errors.push({
+        owner,
+        name,
+        error: new Error(`Unexpected status code: ${result?.status}`)
+      })
+      log.error(
+        `Failed to delete ${owner}/${name}: Unexpected status code ${result?.status}`
+      )
     }
   })
 
@@ -109,10 +109,11 @@ export async function deleteRepositories(owners, token) {
   if (errors.length > 0) {
     spin.stop()
     log.error('Some errors occurred during deletion')
+    log.error(JSON.stringify(errors, null, 2))
     return false
   }
 
-  spin.stop('Done')
+  spin.stop('Finished deleting repositories')
   return true
 }
 
